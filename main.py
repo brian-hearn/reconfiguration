@@ -1,152 +1,84 @@
-import networkx as nx
-import matplotlib.pyplot as plt
-from collections import deque
+from generate_partition_graph import *
+from counting_functions import *
 
-def normalize_partition(parts):
-    sorted_parts = [tuple(sorted(p)) for p in parts]
-    sorted_parts.sort(key=lambda x: x[0] if x else -1)
-    return tuple(sorted_parts)
+# Specify Graph and Original Partition
+n = 21
+parts = [
+    {0, 1, 2},
+    {3, 4, 5},
+    {6, 7, 8},
+    {9, 10, 11},
+    {12, 13, 14},
+    {15, 16, 17},
+    (18, 19, 20)
+]
+edges = []
+for i in range(len(parts)):
+    a = parts[i]
+    b = parts[(i + 1) % len(parts)]
+    for u in a:
+        for v in b:
+            if u != 0:
+                edges.append((u, v))
 
-def build_adjacency_list(n, edges):
-    adj = [[] for _ in range(n)]
-    for u, v in edges:
-        adj[u].append(v)
-        adj[v].append(u)
-    return adj
+adj = build_adjacency_list(n, edges)
+start_partition = normalize_partition(parts)
 
-def find_neighbour_partitions(n, adj, partition, vertices_to_move):
-    parts = [set(p) for p in partition]
-    neighbours = set()
-    for v in vertices_to_move:
-        idx_v = next(i for i, p in enumerate(parts) if v in p)
-        for i, p in enumerate(parts):
-            if i == idx_v:
-                continue
-            if all(neigh not in p for neigh in adj[v]):
-                new_parts = [set(x) for x in parts]
-                new_parts[idx_v].remove(v)
-                new_parts[i].add(v)
-                new_parts = [p for p in new_parts if p]
-                neighbours.add(normalize_partition(new_parts))
-        if len(parts[idx_v]) > 1:
-            new_parts = [set(x) for x in parts]
-            new_parts[idx_v].remove(v)
-            new_parts.append({v})
-            neighbours.add(normalize_partition(new_parts))
-    return neighbours
+# Specify vertices which are allowed to move
+vertices_to_move = [0, 1, 2]
 
-def find_partitions_within_steps(n, adj, start_partition, vertices_to_move, steps):
-    visited = {start_partition: 0}
-    queue = deque([start_partition])
-    while queue:
-        current = queue.popleft()
-        depth = visited[current]
-        if depth == steps:
-            continue
-        new_partitions = find_neighbour_partitions(n, adj, current, vertices_to_move)
-        for p in new_partitions:
-            if p not in visited:
-                visited[p] = depth + 1
-                queue.append(p)
-    return set(visited.keys()), visited
+# Specify depth from original partition
+steps = 3
 
-def build_meta_graph(all_partitions, adj, n):
-    G = nx.Graph()
-    partitions_list = list(all_partitions)
-    for p in partitions_list:
-        G.add_node(p)
-    for i, A in enumerate(partitions_list):
-        for j in range(i + 1, len(partitions_list)):
-            B = partitions_list[j]
-            for v in range(n):
-                if B in find_neighbour_partitions(n, adj, A, [v]):
-                    G.add_edge(A, B)
-                    break
-    return G
+# Specify whether original partition should be displayed
+show_original = False
 
-def partition_to_label(partition):
-    return " | ".join("{" + ",".join(str(x) for x in sorted(p)) + "}" for p in partition)
+all_partitions, depth_dict = find_partitions_within_steps(n, adj, start_partition, vertices_to_move, steps)
+meta_graph = build_meta_graph(all_partitions, adj, n)
 
-def visualize_graph_and_meta_graph(n, edges, start_partition, depth_dict, meta_graph, show_original=True):
-    plt.figure(figsize=(16, 7))
+# Add depth attribute for Gephi
+for node, depth in depth_dict.items():
+    meta_graph.nodes[node]['depth'] = depth
 
-    ax1 = plt.subplot(121)
-    G = nx.Graph()
-    G.add_nodes_from(range(n))
-    G.add_edges_from(edges)
-    pos = nx.spring_layout(G, seed=42)
-    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', ax=ax1)
-    ax1.set_title("Original Graph")
+visualize_graph_and_meta_graph(n, edges, start_partition, depth_dict, meta_graph, show_original=show_original)
 
-    ax2 = plt.subplot(122)
-    meta_to_draw = meta_graph.copy()
-    depth_for_draw = depth_dict.copy()
+nx.write_gexf(meta_graph, "meta_graph.gexf")
+print("Meta graph saved to meta_graph.gexf — open in Gephi to explore.")
 
-    if not show_original:
-        if start_partition in meta_to_draw:
-            meta_to_draw.remove_node(start_partition)
-            depth_for_draw.pop(start_partition, None)
 
-    pos_meta = nx.spring_layout(meta_to_draw, seed=42)
-    depths = [depth_for_draw.get(node, 0) for node in meta_to_draw.nodes()]
-    cmap = plt.cm.viridis
-    max_depth = max(depths) if depths else 1
-    colors = [cmap(d / max_depth if max_depth > 0 else 0) for d in depths]
+# # Example: pick two partitions from all_partitions
+# part1 = list(all_partitions)[8]  # just picking some index for example
+# part2 = list(all_partitions)[6]  # another index for example
 
-    labels = {node: partition_to_label(node) for node in meta_to_draw.nodes()}
-    nx.draw(meta_to_draw, pos_meta, with_labels=False, node_color=colors, edge_color='gray', node_size=500, ax=ax2)
-    nx.draw_networkx_labels(meta_to_draw, pos_meta, labels=labels, font_size=7, ax=ax2)
+part1 = normalize_partition([
+    {0},
+    {1},
+    {2, 3, 4, 5},
+    {6, 7, 8},
+    {9, 10, 11},
+    {12, 13, 14},
+    {15, 16, 17},
+    (18, 19, 20)
+])
 
-    if show_original and start_partition in meta_to_draw:
-        nx.draw_networkx_nodes(meta_to_draw, pos_meta, nodelist=[start_partition], node_color='red', node_size=700, ax=ax2)
+part2 = normalize_partition([
+    {0,1},
+    {2},
+    {3, 4, 5},
+    {6, 7, 8},
+    {9, 10, 11},
+    {12, 13, 14},
+    {15, 16, 17},
+    (18, 19, 20)
+])
 
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=max_depth))
-    sm.set_array([])
-    plt.colorbar(sm, ax=ax2, fraction=0.046, pad=0.04).set_label("Distance from original partition")
+# count_mutual_neighbours_at_next_depth_old(
+#     meta_graph=meta_graph,
+#     depth_dict=depth_dict,
+#     part1=part1,
+#     part2=part2
+# )
 
-    ax2.set_title("Meta Graph of Partitions")
+res = advanced_three_level_search(meta_graph, depth_dict, special_vertex=0)
 
-    plt.tight_layout()
-    plt.show()
-
-def main():
-    n = 21
-    parts = [
-        {0, 1},
-        {2, 3, 4, 5},
-        {6, 7, 8},
-        {9, 10, 11},
-        {12, 13, 14},
-        {15, 16, 17},
-        (18, 19, 20)
-    ]
-    edges = []
-    for i in range(len(parts)):
-        a = parts[i]
-        b = parts[(i + 1) % len(parts)]
-        for u in a:
-            for v in b:
-                if u != 0:
-                    edges.append((u, v))
-
-    adj = build_adjacency_list(n, edges)
-    start_partition = normalize_partition(parts)
-
-    vertices_to_move = [0, 1, 2]
-    steps = 2
-    show_original = False
-
-    all_partitions, depth_dict = find_partitions_within_steps(n, adj, start_partition, vertices_to_move, steps)
-    meta_graph = build_meta_graph(all_partitions, adj, n)
-
-    # Add depth attribute for Gephi
-    for node, depth in depth_dict.items():
-        meta_graph.nodes[node]['depth'] = depth
-
-    visualize_graph_and_meta_graph(n, edges, start_partition, depth_dict, meta_graph, show_original=show_original)
-
-    nx.write_gexf(meta_graph, "meta_graph.gexf")
-    print("Meta graph saved to meta_graph.gexf — open in Gephi to explore.")
-
-if __name__ == "__main__":
-    main()
+print(res)

@@ -7,6 +7,8 @@ requires-python = ">=3.10"
 dependencies = [
     "matplotlib>=3.10.5",
     "networkx>=3.4.2",
+    "networkz>=1.0.6",
     "numpy>=2.2.6",
     "scipy>=1.15.3",
+    "tk>=0.1.0",
 ]
