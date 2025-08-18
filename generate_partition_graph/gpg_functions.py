@@ -1,18 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from collections import deque
-
-def normalize_partition(parts):
-    sorted_parts = [tuple(sorted(p)) for p in parts]
-    sorted_parts.sort(key=lambda x: x[0] if x else -1)
-    return tuple(sorted_parts)
-
-def build_adjacency_list(n, edges):
-    adj = [[] for _ in range(n)]
-    for u, v in edges:
-        adj[u].append(v)
-        adj[v].append(u)
-    return adj
+from gpg_helper_functions import *
 
 def find_neighbour_partitions(n, adj, partition, vertices_to_move):
     parts = [set(p) for p in partition]
@@ -52,7 +41,7 @@ def find_partitions_within_steps(n, adj, start_partition, vertices_to_move, step
 
 def build_meta_graph(all_partitions, adj, n):
     G = nx.Graph()
-    partitions_list = list(all_partitions)
+    partitions_list = [normalize_partition(partition) for partition in list(all_partitions)]
     for p in partitions_list:
         G.add_node(p)
     for i, A in enumerate(partitions_list):
@@ -107,4 +96,4 @@ def visualize_graph_and_meta_graph(n, edges, start_partition, depth_dict, meta_g
     ax2.set_title("Meta Graph of Partitions")
 
     plt.tight_layout()
-    plt.savefig("plot.png")
+    plt.savefig("data/plot.png")
